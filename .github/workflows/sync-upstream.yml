@@ -11,6 +11,15 @@ jobs:
     outputs:
       main_updated: ${{ steps.check_main_diff.outputs.main_updated }}
     steps:
+      - name: Debug Secret
+        run: |
+          if [ -z "${{ secrets.PAT_GITHUB_TOKEN }}" ]; then
+            echo "❌ PAT_GITHUB_TOKEN is NOT set"
+            exit 1
+          else
+            echo "✅ PAT_GITHUB_TOKEN is set"
+          fi
+
       - name: Checkout fork
         uses: actions/checkout@v4
         with:
