@@ -10,4 +10,6 @@ FROM scratch
 WORKDIR /server
 COPY --from=builder /app/terraform-mcp-server .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-CMD ["bin/terraform-mcp-server"]
+ENV SERVER_MODE=http
+EXPOSE 8080
+CMD ["./terraform-mcp-server"]
