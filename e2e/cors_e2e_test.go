@@ -114,7 +114,7 @@ func startHTTPContainerWithCORS(t *testing.T, port, mode, origins string) string
 // waitForCORSServer waits for the HTTP server to be ready
 func waitForCORSServer(t *testing.T, baseURL string) {
 	client := &http.Client{Timeout: 2 * time.Second}
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		resp, err := client.Get(baseURL + "/health")
 		if err == nil && resp.StatusCode == 200 {
 			resp.Body.Close()
