@@ -16,6 +16,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT_GITHUB_TOKEN }}
+          ref: main
 
       - name: Set up Git
         run: |
@@ -56,6 +57,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT_GITHUB_TOKEN }}
+          ref: EO-67998-create-ci-cd
 
       - name: Set up Git
         run: |
