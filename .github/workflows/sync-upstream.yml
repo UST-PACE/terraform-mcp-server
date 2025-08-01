@@ -54,6 +54,7 @@ jobs:
             echo "main_updated=false" >> $GITHUB_OUTPUT
           else
             echo "main_updated=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Push updated main
         if: steps.check_main_diff.outputs.main_updated == 'true'
