@@ -1,4 +1,4 @@
-@Library('jenkins-shared-lib') _
+@Library('jenkins-shared-lib@EO-67998-tf-mcp-pipeline') _
 
   def working_directory = 'terraform-mcp-server'
   def veracode_sandbox_name = 'terraform-mcp-server'
