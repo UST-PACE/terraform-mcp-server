@@ -356,11 +356,11 @@ func createHTTPClient(t *testing.T) (mcpClient.MCPClient, func()) {
 func startHTTPContainer(t *testing.T, port string) string {
 	portMapping := fmt.Sprintf("%s:8080", port)
 	cmd := exec.Command(
-		"docker", "run", "-d", "--rm", 
-		"-e", "TRANSPORT_MODE=streamable-http", 
+		"docker", "run", "-d", "--rm",
+		"-e", "TRANSPORT_MODE=streamable-http",
 		"-e", "TRANSPORT_HOST=0.0.0.0",
 		"-e", "MCP_SESSION_MODE=stateful",
-		"-p", portMapping, 
+		"-p", portMapping,
 		"terraform-mcp-server:test-e2e",
 	)
 	output, err := cmd.Output()
