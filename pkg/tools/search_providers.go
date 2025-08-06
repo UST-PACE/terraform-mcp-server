@@ -21,9 +21,9 @@ import (
 // ResolveProviderDocID creates a tool to get provider details from registry.
 func ResolveProviderDocID(registryClient *http.Client, logger *log.Logger) server.ServerTool {
 	return server.ServerTool{
-		Tool: mcp.NewTool("resolve_provider_doc_id",
+		Tool: mcp.NewTool("search_providers",
 			mcp.WithDescription(`This tool retrieves a list of potential documents based on the service_slug and provider_data_type provided.
-You MUST call this function before 'get_provider_docs' to obtain a valid tfprovider-compatible provider_doc_id.
+You MUST call this function before 'get_provider_details' to obtain a valid tfprovider-compatible provider_doc_id.
 Use the most relevant single word as the search query for service_slug, if unsure about the service_slug, use the provider_name for its value.
 When selecting the best match, consider the following:
 	- Title similarity to the query
@@ -73,13 +73,14 @@ func resolveProviderDocIDHandler(registryClient *http.Client, request mcp.CallTo
 	if serviceSlug == "" {
 		return nil, utils.LogAndReturnError(logger, "service_slug cannot be empty", nil)
 	}
+	serviceSlug = strings.ToLower(serviceSlug)
 
 	providerDataType := request.GetString("provider_data_type", "resources")
 	providerDetail.ProviderDataType = providerDataType
 
 	// Check if we need to use v2 API for guides, functions, or overview
 	if utils.IsV2ProviderDataType(providerDetail.ProviderDataType) {
-		content, err := get_provider_docsV2(registryClient, providerDetail, logger)
+		content, err := providerDetailsV2(registryClient, providerDetail, logger)
 		if err != nil {
 			errMessage := fmt.Sprintf(`No %s documentation found for provider '%s' in the '%s' namespace, %s`,
 				providerDetail.ProviderDataType, providerDetail.ProviderName, providerDetail.ProviderNamespace, defaultErrorGuide)
@@ -140,15 +141,20 @@ func resolveProviderDetails(request mcp.CallToolRequest, registryClient *http.Cl
 	if providerName == "" {
 		return providerDetail, fmt.Errorf("provider_name is required and must be a string")
 	}
+	providerName = strings.ToLower(providerName)
 
 	providerNamespace := request.GetString("provider_namespace", "")
 	if providerNamespace == "" {
 		logger.Debugf(`Error getting latest provider version in "%s" namespace, trying the hashicorp namespace`, providerNamespace)
 		providerNamespace = "hashicorp"
 	}
+	providerNamespace = strings.ToLower(providerNamespace)
 
 	providerVersion := request.GetString("provider_version", "latest")
+	providerVersion = strings.ToLower(providerVersion)
+
 	providerDataType := request.GetString("provider_data_type", "resources")
+	providerDataType = strings.ToLower(providerDataType)
 
 	var err error
 	providerVersionValue := ""
@@ -189,8 +195,8 @@ func resolveProviderDetails(request mcp.CallToolRequest, registryClient *http.Cl
 	return providerDetail, nil
 }
 
-// get_provider_docsV2 retrieves a list of documentation items for a specific provider category using v2 API with support for pagination using page numbers
-func get_provider_docsV2(registryClient *http.Client, providerDetail client.ProviderDetail, logger *log.Logger) (string, error) {
+// providerDetailsV2 retrieves a list of documentation items for a specific provider category using v2 API with support for pagination using page numbers
+func providerDetailsV2(registryClient *http.Client, providerDetail client.ProviderDetail, logger *log.Logger) (string, error) {
 	providerVersionID, err := client.GetProviderVersionID(registryClient, providerDetail.ProviderNamespace, providerDetail.ProviderName, providerDetail.ProviderVersion, logger)
 	if err != nil {
 		return "", utils.LogAndReturnError(logger, "getting provider version ID", err)
