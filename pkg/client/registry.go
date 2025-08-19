@@ -4,23 +4,69 @@
 package client
 
 import (
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/hashicorp/go-cleanhttp"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-mcp-server/pkg/utils"
+	"github.com/hashicorp/terraform-mcp-server/version"
 	log "github.com/sirupsen/logrus"
 )
 
-func SendRegistryCall(client *http.Client, method string, uri string, logger *log.Logger, callOptions ...string) ([]byte, error) {
-	version := "v1"
-	if len(callOptions) > 0 {
-		version = callOptions[0] // API version will be the first optional arg to this function
+// createHTTPClient initializes a retryable HTTP client
+func createHTTPClient(insecureSkipVerify bool, logger *log.Logger) *http.Client {
+	retryClient := retryablehttp.NewClient()
+	retryClient.Logger = logger
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+	}
+	transport.Proxy = http.ProxyFromEnvironment
+
+	retryClient.HTTPClient = cleanhttp.DefaultClient()
+	retryClient.HTTPClient.Timeout = 10 * time.Second
+	retryClient.HTTPClient.Transport = transport
+	retryClient.RetryMax = 3
+
+	retryClient.Backoff = func(min, max time.Duration, attemptNum int, resp *http.Response) time.Duration {
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			resetAfter := resp.Header.Get("x-ratelimit-reset")
+			resetAfterInt, err := strconv.ParseInt(resetAfter, 10, 64)
+			if err != nil {
+				return 0
+			}
+			resetAfterTime := time.Unix(resetAfterInt, 0)
+			return time.Until(resetAfterTime)
+		}
+		return 0
 	}
 
-	url, err := url.Parse(fmt.Sprintf("https://registry.terraform.io/%s/%s", version, uri))
+	retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			resetAfter := resp.Header.Get("x-ratelimit-reset")
+			return resetAfter != "", nil
+		}
+		return false, nil
+	}
+
+	return retryClient.StandardClient()
+}
+
+func SendRegistryCall(client *http.Client, method string, uri string, logger *log.Logger, callOptions ...string) ([]byte, error) {
+	ver := "v1"
+	if len(callOptions) > 0 {
+		ver = callOptions[0] // API version will be the first optional arg to this function
+	}
+
+	url, err := url.Parse(fmt.Sprintf("https://registry.terraform.io/%s/%s", ver, uri))
 	if err != nil {
 		return nil, fmt.Errorf("error parsing terraform registry URL: %w", err)
 	}
@@ -30,6 +76,7 @@ func SendRegistryCall(client *http.Client, method string, uri string, logger *lo
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", fmt.Sprintf("terraform-mcp-server/%s", version.GetHumanVersion()))
 
 	resp, err := client.Do(req)
 	if err != nil {
